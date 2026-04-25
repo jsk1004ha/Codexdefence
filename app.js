@@ -167,6 +167,13 @@ const bosses = [
 ];
 
 const SAVE_KEY = 'orbital_core_save_v2';
+const PERMANENT_UPGRADES = [
+  { id: 'atk', name: '코어 증폭', desc: '코어 기본 공격력 +10%', base: 120, type: 'coin' },
+  { id: 'hp', name: '코어 방호막', desc: '코어 최대 체력 +12%', base: 140, type: 'coin' },
+  { id: 'reward', name: '수확 프로토콜', desc: '코인 획득량 +9%', base: 180, type: 'coin' },
+  { id: 'charge', name: '궁극기 컨덴서', desc: '전투 중 궁극기 자동 충전 +8%', base: 150, type: 'energy' },
+  { id: 'module', name: '모듈 버스 확장', desc: '기본 모듈 슬롯 +1', base: 220, type: 'coin' }
+];
 const defaultState = () => ({
   resources: { coin: 0, energy: 0, research: 0, prestige: 0 },
   selectedCore: coreData[0].id,
@@ -181,6 +188,7 @@ const defaultState = () => ({
   seenHiddenBoss: false,
   titles: [],
   prestige: { times: 0, points: 0, omegaResearch: 0, globalMul: 1 },
+  permanentUpgrades: { atk: 0, hp: 0, reward: 0, charge: 0, module: 0 },
   settings: { screenshake: true, particle: true, autoReturn: false },
   stats: { bestWave: 0, totalKills: 0, riskPick: 0, blackholeKills: 0, shieldAbsorb: 0, droneDamage: 0, noUltWave: 0, bossLowHpKill: 0, attributeKills: 0 },
   lastSeen: Date.now(),
@@ -229,8 +237,23 @@ const game = {
 
 function getCore() { return coreData.find(c => c.id === state.selectedCore) || coreData[0]; }
 function getRun() { if (!state.run) state.run = { upgrades: [], danger: [], mode: null, ultimateAwakening: {}, hiddenScore: 0 }; return state.run; }
+function getPermanentLevel(id) { return state.permanentUpgrades?.[id] || 0; }
+function getPermanentValue(id, perLevel) { return 1 + getPermanentLevel(id) * perLevel; }
+function getUpgradeCost(upgrade) { return Math.floor(upgrade.base * Math.pow(1.35, getPermanentLevel(upgrade.id))); }
+function buyPermanentUpgrade(id) {
+  const up = PERMANENT_UPGRADES.find(u => u.id === id);
+  if (!up) return;
+  const cost = getUpgradeCost(up);
+  const key = up.type === 'energy' ? 'energy' : 'coin';
+  if (state.resources[key] < cost) return flash(`${up.type === 'energy' ? '에너지' : '코인'} 부족`);
+  state.resources[key] -= cost;
+  state.permanentUpgrades[id] = getPermanentLevel(id) + 1;
+  flash(`${up.name} Lv.${state.permanentUpgrades[id]}`);
+  refreshPanels();
+}
 function moduleStats() {
-  const owned = modules.slice(0, Math.min(modules.length, Math.floor(state.coreLevel[state.selectedCore] / 2) + state.coreEvolution[state.selectedCore]));
+  const extraSlot = getPermanentLevel('module');
+  const owned = modules.slice(0, Math.min(modules.length, Math.floor(state.coreLevel[state.selectedCore] / 2) + state.coreEvolution[state.selectedCore] + extraSlot));
   const stat = { laserSat: 0, shieldSat: 0, gravity: 0, chill: 0, chain: 0, reward: 0, drone: 0, missile: 0, reflect: 0, warp: 0, burn: 0, nano: 0, photon: 0, absorb: 0, execute: 0, pendulum: 0, ballistic: 0, cleanse: 0, omega: 0 };
   owned.forEach(m => Object.keys(stat).forEach(k => stat[k] += (m.effects[k] || 0)));
   if (stat.omega > 0) {
@@ -244,6 +267,9 @@ function moduleStats() {
 
 function passiveModifiers() {
   const m = { atk: 1, hp: 1, reward: 1, aspd: 1, enemyHp: 1, enemyAtk: 1, silence: false, noRegen: false, enemyBlink: false };
+  m.atk *= getPermanentValue('atk', 0.1);
+  m.hp *= getPermanentValue('hp', 0.12);
+  m.reward *= getPermanentValue('reward', 0.09);
   if (game.challenge) {
     const ef = game.challenge.effect;
     if (ef.coreAtkMul) m.atk *= ef.coreAtkMul;
@@ -476,9 +502,16 @@ function castUltimate() {
 }
 
 window.addEventListener('keydown', e => {
-  if (e.code === 'Space') castUltimate();
+  if (e.code === 'Space') { e.preventDefault(); castUltimate(); }
   if (e.key === 'r') { if (game.inBattle) { game.inBattle = false; grantMetaRewards('retreat'); } }
 });
+document.getElementById('ultBtn').onclick = () => castUltimate();
+document.getElementById('mobileStart').onclick = () => startRun();
+document.getElementById('mobileRetreat').onclick = () => { if (game.inBattle) { game.inBattle = false; grantMetaRewards('retreat'); } };
+document.getElementById('mobileMenu').onclick = () => {
+  const nav = document.getElementById('navRail');
+  nav.style.display = nav.style.display === 'flex' ? 'none' : 'flex';
+};
 
 function splash(x, y, r, dmg) {
   game.enemies.forEach(e => { if (Math.hypot(e.x - x, e.y - y) < r) e.hp -= dmg; });
@@ -748,6 +781,7 @@ function updateWave(dt) {
   game.waveTimer += dt;
   game.spawnTimer += dt;
   game.ultCd = Math.max(0, game.ultCd - dt);
+  game.ultCharge += dt * 3 * (1 + getPermanentLevel('charge') * 0.08);
 
   if (game.spawnTimer > Math.max(0.16, 1.5 - game.wave * 0.02)) {
     game.spawnTimer = 0;
@@ -978,15 +1012,30 @@ function flash(msg) {
 function panel(title, html) { return `<div class='panel glass'><h2>${title}</h2>${html}</div>`; }
 const panelContainer = document.getElementById('panelContainer');
 let currentScreen = 'main';
-document.querySelectorAll('[data-screen]').forEach(btn => btn.onclick = () => { currentScreen = btn.dataset.screen; refreshPanels(); });
+function setScreen(name) {
+  currentScreen = name;
+  document.querySelectorAll('[data-screen]').forEach(btn => btn.classList.toggle('active', btn.dataset.screen === name));
+  refreshPanels();
+}
+document.querySelectorAll('[data-screen]').forEach(btn => btn.onclick = () => setScreen(btn.dataset.screen));
 
 function refreshPanels() {
   const core = getCore();
   const screens = {
-    main: () => panel('메인 메뉴', `<div class='card'><p>${game.inBattle ? '전투 진행 중' : '대기 중'} / 웨이브 ${game.wave}</p><button id='startBtn'>전투 시작</button> <button id='retBtn'>귀환</button></div><div class='card'><p>오프라인 보상과 영구 성장은 저장 시 누적됩니다.</p></div>`),
+    main: () => panel('Main Combat View', `<div class='card'><span class='badge'>Run Status</span><p>${game.inBattle ? '전투 진행 중' : '대기 중'} / 웨이브 ${game.wave}</p><button id='startBtn'>Start Run</button> <button id='retBtn' class='warn'>Runaway (귀환)</button><div class='small'>Space 또는 모바일 궁극기 버튼으로 즉시 발동.</div></div><div class='card'><b>실시간 모듈 상태</b><div class='small'>모듈 ${moduleStats().owned.length}개 장착 / 궁극기 충전 ${Math.floor(game.ultCharge)}</div></div>`),
+    upgradeCenter: () => panel('Upgrade & Mastery Center', `<div class='grid2'>${PERMANENT_UPGRADES.map(up => {
+      const lv = getPermanentLevel(up.id);
+      const cost = getUpgradeCost(up);
+      const unit = up.type === 'energy' ? '에너지' : '코인';
+      return `<div class='card'><b>${up.name}</b><div class='small'>${up.desc}</div><div class='small'>Lv.${lv} · 비용 ${cost} ${unit}</div><button data-pup='${up.id}'>강화</button></div>`;
+    }).join('')}</div><div class='card'><b>Mastery Snapshot</b><div class='small'>현재 코어 ${core.name} · 마스터리 Lv.${state.coreMastery[core.id].lv} · 진화 ${state.coreEvolution[core.id]}</div></div>`),
     coreSelect: () => panel('코어 선택', coreData.map(c => `<div class='card'><b>${state.unlockedCores.includes(c.id) ? c.name : '??? 실루엣'}</b><div class='small'>${state.unlockedCores.includes(c.id) ? c.description : '히든 조건 필요'}</div><div class='small'>진화 ${state.coreEvolution[c.id]} / 마스터리 ${state.coreMastery[c.id].lv}</div><div class='small'>패턴: ${c.attackPattern}</div><button data-core='${c.id}' ${!state.unlockedCores.includes(c.id) ? 'disabled' : ''}>선택</button></div>`).join('')),
     codex: () => panel('도감', `<input id='codexSearch' placeholder='검색 (코어/적/보스/모듈)'/><div class='mono' id='codexBody'></div>`),
-    missions: () => panel('미션', missions.map(m => `<div class='card'><b>${m.name}</b><div class='small'>${state.missionProgress[m.id] || 0}/${m.target} 보상 ${m.reward}</div><button data-mission='${m.id}'>보상 수령</button></div>`).join('')),
+    missions: () => panel('Mission & Rewards Dashboard', `<div class='list-scroll'>${missions.map(m => {
+      const progress = state.missionProgress[m.id] || 0;
+      const ratio = Math.min(100, Math.floor((progress / m.target) * 100));
+      return `<div class='card'><b>${m.name}</b><div class='small'>${progress}/${m.target} 보상 ${m.reward}</div><div style='height:6px;background:rgba(255,255,255,.12);border-radius:999px;overflow:hidden;margin:6px 0;'><div style='width:${ratio}%;height:100%;background:linear-gradient(90deg,#61f2ff,#bc7cff);'></div></div><button data-mission='${m.id}'>보상 수령</button></div>`;
+    }).join('')}</div>`),
     research: () => panel('연구소', `<div class='grid2'>
       <div class='card'><b>자동화 연구</b><p class='small'>코스트 200 연구</p><button id='r1'>구매</button></div>
       <div class='card'><b>오메가 연구</b><p class='small'>코스트 300 연구</p><button id='r2'>구매</button></div>
@@ -1003,6 +1052,7 @@ function refreshPanels() {
 
   const sb = document.getElementById('startBtn'); if (sb) sb.onclick = () => startRun();
   const rb = document.getElementById('retBtn'); if (rb) rb.onclick = () => { if (game.inBattle) { game.inBattle = false; grantMetaRewards('retreat'); } };
+  panelContainer.querySelectorAll('[data-pup]').forEach(b => b.onclick = () => buyPermanentUpgrade(b.dataset.pup));
   panelContainer.querySelectorAll('[data-core]').forEach(b => b.onclick = () => { state.selectedCore = b.dataset.core; flash(`${getCore().name} 선택`); refreshPanels(); });
   panelContainer.querySelectorAll('[data-ch]').forEach(b => b.onclick = () => { game.challenge = challengeModes.find(x => x.name === b.dataset.ch); flash(`도전 모드 적용: ${game.challenge.name}`); });
   panelContainer.querySelectorAll('[data-rel]').forEach(b => b.onclick = () => {
@@ -1059,21 +1109,22 @@ function refreshPanels() {
     };
   });
 }
-refreshPanels();
+setScreen('main');
 
 function updateHud() {
-  document.getElementById('hudStats').innerHTML = [
-    `코인: ${Math.floor(state.resources.coin)}`,
-    `연구: ${Math.floor(state.resources.research)}`,
-    `에너지: ${Math.floor(state.resources.energy)}`,
-    `웨이브: ${game.wave}`,
-    `HP: ${Math.max(0, Math.floor(game.hp))}/${Math.floor(game.maxHp)}`,
-    `실드: ${Math.floor(game.shield)}/${Math.floor(game.maxShield)}`,
-    `궁극기: ${Math.floor(game.ultCharge)}${game.challenge?.effect?.silence ? ' (봉인)' : ''}`,
-    `도전: ${game.challenge?.name || '없음'}`,
-    `코어: ${getCore().name}`,
-    `프레스티지 배율: x${state.prestige.globalMul.toFixed(2)}`
-  ].map(t => `<div>${t}</div>`).join('');
+  const stats = [
+    ['코인', Math.floor(state.resources.coin)],
+    ['연구', Math.floor(state.resources.research)],
+    ['에너지', Math.floor(state.resources.energy)],
+    ['웨이브', game.wave],
+    ['HP', `${Math.max(0, Math.floor(game.hp))}/${Math.floor(game.maxHp)}`],
+    ['실드', `${Math.floor(game.shield)}/${Math.floor(game.maxShield)}`],
+    ['궁극기', `${Math.floor(game.ultCharge)}${game.challenge?.effect?.silence ? ' (봉인)' : ''}`],
+    ['모드', game.challenge?.name || '기본'],
+    ['코어', getCore().name],
+    ['배율', `x${state.prestige.globalMul.toFixed(2)}`]
+  ];
+  document.getElementById('hudStats').innerHTML = stats.map(([label, value]) => `<div class='stat'><span class='label'>${label}</span><span class='value'>${value}</span></div>`).join('');
 }
 
 let last = performance.now();
