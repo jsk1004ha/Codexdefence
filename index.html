@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>오비탈 코어: 아이들 타워 디펜스</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div id="app">
+    <canvas id="gameCanvas" width="1280" height="720"></canvas>
+    <div id="hud" class="glass">
+      <div class="left">
+        <h1>오비탈 코어</h1>
+        <div id="hudStats"></div>
+      </div>
+      <div class="right">
+        <button data-screen="main">메인</button>
+        <button data-screen="coreSelect">코어</button>
+        <button data-screen="codex">도감</button>
+        <button data-screen="missions">미션</button>
+        <button data-screen="research">연구소</button>
+        <button data-screen="relics">유물</button>
+        <button data-screen="mastery">마스터리</button>
+        <button data-screen="challenge">도전</button>
+        <button data-screen="prestige">프레스티지</button>
+        <button data-screen="hidden">히든 단서</button>
+        <button data-screen="planner">기획서</button>
+        <button id="saveBtn">저장</button>
+      </div>
+    </div>
+    <div id="panelContainer"></div>
+    <div id="upgradeOverlay" class="hidden"></div>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>
