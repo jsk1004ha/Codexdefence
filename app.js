@@ -199,7 +199,32 @@ function load() {
   try {
     const raw = localStorage.getItem(SAVE_KEY);
     if (!raw) return defaultState();
-    return { ...defaultState(), ...JSON.parse(raw) };
+    const base = defaultState();
+    const parsed = JSON.parse(raw);
+    const next = { ...base, ...parsed };
+
+    next.resources = { ...base.resources, ...(parsed.resources || {}) };
+    next.prestige = { ...base.prestige, ...(parsed.prestige || {}) };
+    next.settings = { ...base.settings, ...(parsed.settings || {}) };
+    next.stats = { ...base.stats, ...(parsed.stats || {}) };
+    next.permanentUpgrades = { ...base.permanentUpgrades, ...(parsed.permanentUpgrades || {}) };
+
+    next.coreLevel = { ...base.coreLevel, ...(parsed.coreLevel || {}) };
+    next.coreEvolution = { ...base.coreEvolution, ...(parsed.coreEvolution || {}) };
+    next.coreMastery = { ...base.coreMastery, ...(parsed.coreMastery || {}) };
+
+    coreData.forEach(c => {
+      if (typeof next.coreLevel[c.id] !== 'number') next.coreLevel[c.id] = base.coreLevel[c.id];
+      if (typeof next.coreEvolution[c.id] !== 'number') next.coreEvolution[c.id] = base.coreEvolution[c.id];
+      if (!next.coreMastery[c.id] || typeof next.coreMastery[c.id] !== 'object') next.coreMastery[c.id] = { ...base.coreMastery[c.id] };
+      next.coreMastery[c.id] = { ...base.coreMastery[c.id], ...next.coreMastery[c.id] };
+    });
+
+    if (!coreData.some(c => c.id === next.selectedCore)) next.selectedCore = base.selectedCore;
+    if (!Array.isArray(next.unlockedCores)) next.unlockedCores = [...base.unlockedCores];
+    if (!next.unlockedCores.includes(next.selectedCore)) next.unlockedCores.unshift(next.selectedCore);
+
+    return next;
   } catch {
     return defaultState();
   }
@@ -1048,7 +1073,8 @@ function refreshPanels() {
     hidden: () => panel('히든 단서', `<div class='card'><b>단서 목록</b>${state.hiddenClues.map(c => `<div>• ${c}</div>`).join('') || '<div>아직 발견 없음</div>'}</div><div class='card'>히든 보스 조우: ${state.seenHiddenBoss ? '예' : '아니오'}</div>`),
     planner: () => panel('기획서 열람', `<div class='small'>검색/접기 기능: 검색은 브라우저 찾기(Ctrl+F)와 본문 스크롤을 제공합니다.</div><div class='mono'>${ORIGINAL_PLANNER_TEXT}</div>`)
   };
-  panelContainer.innerHTML = screens[currentScreen]();
+  const renderScreen = screens[currentScreen] || screens.main;
+  panelContainer.innerHTML = renderScreen();
 
   const sb = document.getElementById('startBtn'); if (sb) sb.onclick = () => startRun();
   const rb = document.getElementById('retBtn'); if (rb) rb.onclick = () => { if (game.inBattle) { game.inBattle = false; grantMetaRewards('retreat'); } };
