@@ -21,13 +21,13 @@ h1{font-size:20px;margin:2px 0 0;color:var(--neon);}
 #hudStats .label{display:block;font-size:11px;opacity:.75;}
 #hudStats .value{font-size:12px;color:#d4f8ff;}
 
-#navRail{position:absolute;left:12px;top:112px;bottom:12px;width:190px;padding:10px;display:flex;flex-direction:column;gap:6px;z-index:24;overflow:auto;}
+#navRail{position:absolute;left:12px;top:var(--hud-offset,112px);bottom:12px;width:190px;padding:10px;display:flex;flex-direction:column;gap:6px;z-index:24;overflow:auto;}
 button{background:linear-gradient(135deg,#182746,#10192d);border:1px solid rgba(90,241,255,.55);padding:8px 10px;border-radius:10px;cursor:pointer;font-size:12px;transition:.15s ease;}
 button:hover{transform:translateY(-1px);filter:brightness(1.15);}
 button.active{outline:1px solid var(--energy);box-shadow:0 0 12px rgba(188,124,255,.35);}
 button.warn{border-color:rgba(255,93,122,.7);}
 
-#panelContainer{position:absolute;right:12px;top:112px;bottom:12px;width:min(460px,33vw);overflow:auto;z-index:22;}
+#panelContainer{position:absolute;right:12px;top:var(--hud-offset,112px);bottom:12px;width:min(460px,33vw);overflow:auto;z-index:22;}
 .panel{padding:14px;}
 .panel h2{margin:0 0 10px;color:#ff85df;font-size:18px;}
 .card{background:rgba(6,10,20,.72);border:1px solid rgba(255,255,255,.11);border-radius:12px;padding:10px;margin-bottom:8px;}
@@ -58,8 +58,8 @@ input{width:100%;padding:8px;background:#0d1321;border:1px solid rgba(255,255,25
   body{overflow:hidden;}
   #topHud{left:8px;right:8px;top:8px;padding:10px;}
   #hudStats{grid-template-columns:repeat(2,minmax(88px,1fr));max-width:52vw;gap:6px;}
-  #navRail{left:8px;top:94px;bottom:86px;width:132px;padding:8px;}
-  #panelContainer{left:148px;right:8px;top:94px;bottom:86px;width:auto;}
+  #navRail{left:8px;top:var(--hud-offset,94px);bottom:var(--bottom-offset,86px);width:132px;padding:8px;}
+  #panelContainer{left:148px;right:8px;top:var(--hud-offset,94px);bottom:var(--bottom-offset,86px);width:auto;}
   #mobileControls{display:grid;}
 }
 
@@ -69,6 +69,6 @@ input{width:100%;padding:8px;background:#0d1321;border:1px solid rgba(255,255,25
   #topHud{display:block;}
   #hudStats{margin:8px 0 0;max-width:none;grid-template-columns:repeat(2,minmax(60px,1fr));}
   #navRail{display:none;}
-  #panelContainer{left:8px;right:8px;top:154px;bottom:84px;}
+  #panelContainer{left:8px;right:8px;top:var(--hud-offset,154px);bottom:var(--bottom-offset,84px);}
   #upgradeOverlay .upgrade-cards{grid-template-columns:1fr;}
 }
