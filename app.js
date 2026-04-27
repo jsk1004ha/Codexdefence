@@ -247,7 +247,25 @@ document.getElementById('saveBtn').onclick = () => { save(); flash("저장 완�
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 let W = canvas.width, H = canvas.height, cx = W / 2, cy = H / 2;
-window.addEventListener('resize', () => { canvas.width = innerWidth; canvas.height = innerHeight; W = canvas.width; H = canvas.height; cx = W / 2; cy = H / 2; });
+function syncUiLayoutOffsets() {
+  const topHud = document.getElementById('topHud');
+  const mobileControls = document.getElementById('mobileControls');
+  const hudOffset = Math.ceil(topHud.getBoundingClientRect().height) + 24;
+  const mobileActive = getComputedStyle(mobileControls).display !== 'none';
+  const bottomOffset = mobileActive ? Math.ceil(mobileControls.getBoundingClientRect().height) + 20 : 24;
+  document.documentElement.style.setProperty('--hud-offset', `${hudOffset}px`);
+  document.documentElement.style.setProperty('--bottom-offset', `${bottomOffset}px`);
+}
+
+window.addEventListener('resize', () => {
+  canvas.width = innerWidth;
+  canvas.height = innerHeight;
+  W = canvas.width;
+  H = canvas.height;
+  cx = W / 2;
+  cy = H / 2;
+  syncUiLayoutOffsets();
+});
 window.dispatchEvent(new Event('resize'));
 
 const game = {
@@ -1137,6 +1155,8 @@ function refreshPanels() {
 }
 setScreen('main');
 
+let nextLayoutSyncAt = 0;
+
 function updateHud() {
   const stats = [
     ['코인', Math.floor(state.resources.coin)],
@@ -1151,6 +1171,12 @@ function updateHud() {
     ['배율', `x${state.prestige.globalMul.toFixed(2)}`]
   ];
   document.getElementById('hudStats').innerHTML = stats.map(([label, value]) => `<div class='stat'><span class='label'>${label}</span><span class='value'>${value}</span></div>`).join('');
+
+  const now = performance.now();
+  if (now >= nextLayoutSyncAt) {
+    syncUiLayoutOffsets();
+    nextLayoutSyncAt = now + 500;
+  }
 }
 
 let last = performance.now();
